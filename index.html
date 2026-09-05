@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meu Treino</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+
+<header class="topo">
+    <div>
+        <span class="logo"></span>
+        <div>
+            <h1>Meu Treino</h1>
+            <p>Seu treino, sua evolução.</p>
+        </div>
+    </div>
+</header>
+
+<main>
+
+    <!-- INÍCIO -->
+    <section id="tela-inicio" class="tela ativa">
+
+        <h2>Treino do Murilo</h2>
+        <p class="subtitulo">Força e constância</p>
+
+        <div class="card destaque">
+            <span class="icone-card"></span>
+
+            <h3>Meus treinos</h3>
+
+            <p>
+                Monte seu treino e acompanhe sua evolução.
+            </p>
+
+            <button onclick="abrirTela('tela-treinos')">
+                Ver treinos
+            </button>
+        </div>
+
+        <h3 class="titulo-secao">Resumo</h3>
+
+        <div class="resumo">
+
+            <div class="card-resumo">
+                <strong id="total-treinos">0</strong>
+                <span>Treinos</span>
+            </div>
+
+            <div class="card-resumo">
+                <strong id="total-exercicios">0</strong>
+                <span>Exercícios</span>
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- TREINOS -->
+    <section id="tela-treinos" class="tela">
+
+        <div class="cabecalho-tela">
+
+            <div>
+                <h2>Meus Treinos</h2>
+                <p>Crie e organize suas rotinas.</p>
+            </div>
+
+            <button class="botao-adicionar"
+                    onclick="abrirModalTreino()">
+                + Novo
+            </button>
+
+        </div>
+
+        <div id="lista-treinos" class="lista"></div>
+
+        <div id="treinos-vazio" class="estado-vazio">
+
+            <div>🏋️</div>
+
+            <h3>Nenhum treino cadastrado</h3>
+
+            <p>
+                Crie seu primeiro treino para começar.
+            </p>
+
+            <button onclick="abrirModalTreino()">
+                Criar treino
+            </button>
+
+        </div>
+
+    </section>
+
+
+    <!-- DETALHES DO TREINO -->
+    <section id="tela-detalhes-treino" class="tela">
+
+        <button class="botao-voltar"
+                onclick="abrirTela('tela-treinos')">
+            ← Voltar
+        </button>
+
+        <div class="cabecalho-tela">
+
+            <div>
+                <h2 id="detalhe-nome-treino">Treino</h2>
+                <p id="detalhe-descricao-treino"></p>
+            </div>
+
+            <button class="botao-adicionar"
+                    onclick="abrirModalAdicionarExercicio()">
+                + Exercício
+            </button>
+
+        </div>
+
+        <div id="lista-exercicios-treino"
+             class="lista">
+        </div>
+
+        <div id="treino-sem-exercicios"
+             class="estado-vazio">
+
+            <div>💪</div>
+
+            <h3>Treino vazio</h3>
+
+            <p>
+                Adicione exercícios para montar este treino.
+            </p>
+
+            <button onclick="abrirModalAdicionarExercicio()">
+                Adicionar exercício
+            </button>
+
+        </div>
+
+    </section>
+
+
+    <!-- BANCO DE EXERCÍCIOS -->
+    <section id="tela-exercicios" class="tela">
+
+        <div class="cabecalho-tela">
+
+            <div>
+                <h2>Banco de Exercícios</h2>
+                <p>Cadastre e organize seus exercícios.</p>
+            </div>
+
+            <button class="botao-adicionar"
+                    onclick="abrirModalExercicio()">
+                + Novo
+            </button>
+
+        </div>
+
+
+        <div class="filtros">
+
+            <select id="filtro-grupo"
+                    onchange="atualizarExercicios()">
+
+                <option value="Todos">Todos</option>
+                <option value="Peito">Peito</option>
+                <option value="Costas">Costas</option>
+                <option value="Ombro">Ombro</option>
+                <option value="Bíceps">Bíceps</option>
+                <option value="Tríceps">Tríceps</option>
+                <option value="Perna">Perna</option>
+                <option value="Glúteo">Glúteo</option>
+                <option value="Abdômen">Abdômen</option>
+                <option value="Cardio">Cardio</option>
+                <option value="Outro">Outro</option>
+
+            </select>
+
+        </div>
+
+        <div id="lista-exercicios"
+             class="grade-exercicios">
+        </div>
+
+        <div id="exercicios-vazio"
+             class="estado-vazio">
+
+            <div>💪</div>
+
+            <h3>Nenhum exercício cadastrado</h3>
+
+            <p>
+                Cadastre seu primeiro exercício.
+            </p>
+
+            <button onclick="abrirModalExercicio()">
+                Cadastrar exercício
+            </button>
+
+        </div>
+
+    </section>
+
+
+    <!-- HISTÓRICO -->
+    <section id="tela-historico" class="tela">
+
+        <h2>Histórico</h2>
+
+        <p class="subtitulo">
+            Sua evolução aparecerá aqui.
+        </p>
+
+        <div class="estado-vazio">
+
+            <div>📈</div>
+
+            <h3>Ainda não há histórico</h3>
+
+            <p>
+                Quando você registrar seus treinos,
+                sua evolução aparecerá aqui.
+            </p>
+
+        </div>
+
+    </section>
+
+</main>
+
+
+<!-- MENU -->
+<nav class="menu-inferior">
+    <nav class="menu-inferior">
+
+    <button class="menu-ativo"
+            onclick="abrirTela('tela-inicio')">
+
+        <div class="icone-menu">
+            <!-- CASA -->
+            <svg viewBox="0 0 24 24">
+                <path d="M3 11.5L12 4l9 7.5"/>
+                <path d="M5.5 10v10h13V10"/>
+                <path d="M9.5 20v-6h5v6"/>
+            </svg>
+        </div>
+
+        <span>Início</span>
+    </button>
+
+
+    <button onclick="abrirTela('tela-treinos')">
+
+        <div class="icone-menu">
+            <!-- HALTER -->
+            <svg viewBox="0 0 24 24">
+                <path d="M6 8v8"/>
+                <path d="M3 9.5v5"/>
+                <path d="M8 10.5h8"/>
+                <path d="M18 8v8"/>
+                <path d="M21 9.5v5"/>
+            </svg>
+        </div>
+
+        <span>Treinos</span>
+    </button>
+
+
+    <button onclick="abrirTela('tela-exercicios')">
+
+        <div class="icone-menu">
+            <!-- BRAÇO / FORÇA -->
+            <svg viewBox="0 0 24 24">
+                <path d="M7 14c1-1 2-2 3-4"/>
+                <path d="M10 10l1-4 3 1-1 4"/>
+                <path d="M13 11c2-1 4 0 5 2"/>
+                <path d="M18 13c2 1 3 3 2 5"/>
+                <path d="M20 18c-2 3-7 3-10 2"/>
+                <path d="M10 20c-3 0-5-2-6-4"/>
+                <path d="M4 16c1-1 2-2 3-2"/>
+            </svg>
+        </div>
+
+        <span>Exercícios</span>
+    </button>
+
+
+    <button onclick="abrirTela('tela-historico')">
+
+        <div class="icone-menu">
+            <!-- GRÁFICO -->
+            <svg viewBox="0 0 24 24">
+                <path d="M4 20V13"/>
+                <path d="M10 20V9"/>
+                <path d="M16 20V4"/>
+                <path d="M22 20H2"/>
+            </svg>
+        </div>
+
+        <span>Histórico</span>
+    </button>
+
+</nav>
+
+</nav>
+
+
+<!-- MODAL NOVO TREINO -->
+<div id="modal-treino" class="modal">
+
+    <div class="modal-conteudo">
+
+        <div class="modal-topo">
+            <h2>Novo treino</h2>
+
+            <button onclick="fecharModalTreino()">
+                ×
+            </button>
+        </div>
+
+        <form id="form-treino">
+
+            <label>
+                Nome do treino
+
+                <input type="text"
+                       id="nome-treino"
+                       placeholder="Ex: Treino A"
+                       required>
+            </label>
+
+            <label>
+                Descrição
+
+                <input type="text"
+                       id="descricao-treino"
+                       placeholder="Ex: Peito e bíceps">
+            </label>
+
+            <button type="submit"
+                    class="botao-principal">
+                Criar treino
+            </button>
+
+        </form>
+
+    </div>
+
+</div>
+
+
+<!-- MODAL NOVO EXERCÍCIO -->
+<div id="modal-exercicio" class="modal">
+
+    <div class="modal-conteudo">
+
+        <div class="modal-topo">
+            <h2>Novo exercício</h2>
+
+            <button onclick="fecharModalExercicio()">
+                ×
+            </button>
+        </div>
+
+        <form id="form-exercicio">
+
+            <label>
+                Nome do exercício
+
+                <input type="text"
+                       id="nome-exercicio"
+                       placeholder="Ex: Supino reto"
+                       required>
+            </label>
+
+            <label>
+                Grupo muscular
+
+                <select id="grupo-exercicio" required>
+                    <option value="">Selecione</option>
+                    <option value="Peito">Peito</option>
+                    <option value="Costas">Costas</option>
+                    <option value="Ombro">Ombro</option>
+                    <option value="Bíceps">Bíceps</option>
+                    <option value="Tríceps">Tríceps</option>
+                    <option value="Perna">Perna</option>
+                    <option value="Glúteo">Glúteo</option>
+                    <option value="Abdômen">Abdômen</option>
+                    <option value="Cardio">Cardio</option>
+                    <option value="Outro">Outro</option>
+                </select>
+            </label>
+
+            <label>
+                Imagem do exercício
+
+                <input type="file"
+                       id="imagem-exercicio"
+                       accept="image/*">
+            </label>
+
+            <div id="preview-container"
+                 class="preview-container">
+
+                <img id="preview-imagem"
+                     alt="Prévia">
+            </div>
+
+            <button type="submit"
+                    class="botao-principal">
+                Salvar exercício
+            </button>
+
+        </form>
+
+    </div>
+
+</div>
+
+
+<!-- MODAL EDITAR EXERCÍCIO DO BANCO -->
+<div id="modal-editar-exercicio" class="modal">
+
+    <div class="modal-conteudo">
+
+        <div class="modal-topo">
+
+            <div>
+                <p class="modal-legenda">
+                    Banco de exercícios
+                </p>
+
+                <h2>Editar exercício</h2>
+            </div>
+
+            <button onclick="fecharModalEditarExercicio()">
+                ×
+            </button>
+
+        </div>
+
+
+        <form id="form-editar-exercicio">
+
+            <label>
+                Nome do exercício
+
+                <input type="text"
+                       id="editar-exercicio-nome"
+                       required>
+            </label>
+
+
+            <label>
+                Grupo muscular
+
+                <select id="editar-exercicio-grupo"
+                        required>
+
+                    <option value="Peito">Peito</option>
+                    <option value="Costas">Costas</option>
+                    <option value="Ombro">Ombro</option>
+                    <option value="Bíceps">Bíceps</option>
+                    <option value="Tríceps">Tríceps</option>
+                    <option value="Perna">Perna</option>
+                    <option value="Glúteo">Glúteo</option>
+                    <option value="Abdômen">Abdômen</option>
+                    <option value="Cardio">Cardio</option>
+                    <option value="Outro">Outro</option>
+
+                </select>
+            </label>
+
+
+            <div id="editar-preview-container"
+                 class="preview-container">
+
+                <img id="editar-preview-imagem"
+                     alt="Imagem atual">
+            </div>
+
+
+            <label>
+                Trocar imagem
+
+                <input type="file"
+                       id="editar-exercicio-imagem"
+                       accept="image/*">
+            </label>
+
+
+            <button type="button"
+                    id="botao-remover-imagem"
+                    class="botao-remover-imagem"
+                    onclick="removerImagemEdicao()">
+
+                🖼️ Remover imagem
+
+            </button>
+
+
+            <button type="submit"
+                    class="botao-principal">
+
+                Salvar alterações
+
+            </button>
+
+        </form>
+
+    </div>
+
+</div>
+
+
+<!-- ADICIONAR EXERCÍCIO AO TREINO -->
+<div id="modal-adicionar-exercicio"
+     class="modal">
+
+    <div class="modal-conteudo">
+
+        <div class="modal-topo">
+
+            <h2>Adicionar exercício</h2>
+
+            <button onclick="fecharModalAdicionarExercicio()">
+                ×
+            </button>
+
+        </div>
+
+
+        <label>
+            Filtrar por grupo
+
+            <select id="filtro-modal-grupo"
+                    onchange="listarOpcoesExercicios()">
+
+                <option value="Todos">Todos</option>
+                <option value="Peito">Peito</option>
+                <option value="Costas">Costas</option>
+                <option value="Ombro">Ombro</option>
+                <option value="Bíceps">Bíceps</option>
+                <option value="Tríceps">Tríceps</option>
+                <option value="Perna">Perna</option>
+                <option value="Glúteo">Glúteo</option>
+                <option value="Abdômen">Abdômen</option>
+                <option value="Cardio">Cardio</option>
+                <option value="Outro">Outro</option>
+
+            </select>
+        </label>
+
+        <div id="opcoes-exercicios"
+             class="lista-opcoes">
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- CONFIGURAR EXERCÍCIO -->
+<div id="modal-configurar-exercicio"
+     class="modal">
+
+    <div class="modal-conteudo">
+
+        <div class="modal-topo">
+
+            <div>
+                <p class="modal-legenda">
+                    Adicionar ao treino
+                </p>
+
+                <h2 id="config-nome-exercicio">
+                    Exercício
+                </h2>
+            </div>
+
+            <button onclick="fecharModalConfigurarExercicio()">
+                ×
+            </button>
+
+        </div>
+
+
+        <form id="form-configurar-exercicio">
+
+            <div class="campos-duplos">
+
+                <label>
+                    Carga
+
+                    <div class="campo-unidade">
+
+                        <input type="number"
+                               id="config-carga"
+                               min="0"
+                               step="0.5"
+                               value="20"
+                               required>
+
+                        <span>kg</span>
+
+                    </div>
+                </label>
+
+
+                <label>
+                    Repetições
+
+                    <input type="number"
+                           id="config-repeticoes"
+                           min="1"
+                           value="12"
+                           required>
+                </label>
+
+            </div>
+
+
+            <label>
+                Séries
+
+                <input type="number"
+                       id="config-series"
+                       min="1"
+                       value="3"
+                       required>
+            </label>
+
+
+            <button type="submit"
+                    class="botao-principal">
+
+                Adicionar ao treino
+
+            </button>
+
+        </form>
+
+    </div>
+
+</div>
+
+
+<!-- EDITAR CARGA/REPS NO TREINO -->
+<div id="modal-editar-treino-exercicio"
+     class="modal">
+
+    <div class="modal-conteudo">
+
+        <div class="modal-topo">
+
+            <div>
+                <p class="modal-legenda">
+                    Configuração do treino
+                </p>
+
+                <h2 id="editar-nome-exercicio">
+                    Exercício
+                </h2>
+            </div>
+
+            <button onclick="fecharModalEditarTreinoExercicio()">
+                ×
+            </button>
+
+        </div>
+
+
+        <form id="form-editar-treino-exercicio">
+
+            <div class="campos-duplos">
+
+                <label>
+                    Carga
+
+                    <div class="campo-unidade">
+
+                        <input type="number"
+                               id="editar-carga"
+                               min="0"
+                               step="0.5"
+                               required>
+
+                        <span>kg</span>
+
+                    </div>
+                </label>
+
+
+                <label>
+                    Repetições
+
+                    <input type="number"
+                           id="editar-repeticoes"
+                           min="1"
+                           required>
+                </label>
+
+            </div>
+
+
+            <label>
+                Séries
+
+                <input type="number"
+                       id="editar-series"
+                       min="1"
+                       required>
+            </label>
+
+
+            <button type="submit"
+                    class="botao-principal">
+
+                Salvar alterações
+
+            </button>
+
+        </form>
+
+    </div>
+
+</div>
+
+
+<script src="js/app.js"></script>
+
+</body>
+</html>
