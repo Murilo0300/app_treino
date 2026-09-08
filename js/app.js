@@ -1,51 +1,145 @@
-/* =========================
+/* =========================================================
+   FIREBASE
+========================================================= */
+
+import { auth, db } from "./firebase.js";
+
+import {
+    onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+
+import {
+    collection,
+    doc,
+    getDocs,
+    setDoc,
+    deleteDoc,
+    serverTimestamp
+} from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
+
+
+/* =========================================================
    DADOS
-========================= */
+========================================================= */
 
 let treinos =
     JSON.parse(localStorage.getItem("treinos")) || [];
 
-let exercicios =
-    JSON.parse(localStorage.getItem("exercicios")) || [];
+let exercicios = [];
+
+let usuarioAtual = null;
 
 let treinoSelecionado = null;
-
 let exercicioSelecionadoParaAdicionar = null;
-
 let itemTreinoSendoEditado = null;
-
 let exercicioBancoSendoEditado = null;
 
 let imagemSelecionada = "";
-
 let imagemEdicao = "";
 
 
-/* =========================
-   MIGRAÇÃO
-========================= */
+/* =========================================================
+   FIRESTORE - EXERCÍCIOS
+========================================================= */
+
+async function carregarExerciciosFirebase() {
+
+    if (!usuarioAtual) return;
+
+    try {
+
+        const referencia = collection(
+            db,
+            "usuarios",
+            usuarioAtual.uid,
+            "exercicios"
+        );
+
+        const resultado = await getDocs(referencia);
+
+        exercicios = resultado.docs.map(documento => ({
+            id: Number(documento.id),
+            ...documento.data()
+        }));
+
+        atualizarExercicios();
+        atualizarResumo();
+
+        console.log(
+            "Exercícios carregados:",
+            exercicios.length
+        );
+
+    } catch (erro) {
+
+        console.error(
+            "Erro ao carregar exercícios:",
+            erro
+        );
+
+    }
+
+}
+
+
+async function salvarExercicioFirebase(exercicio) {
+
+    if (!usuarioAtual) {
+        throw new Error("Usuário não autenticado.");
+    }
+
+    await setDoc(
+        doc(
+            db,
+            "usuarios",
+            usuarioAtual.uid,
+            "exercicios",
+            String(exercicio.id)
+        ),
+        {
+            nome: exercicio.nome,
+            grupo: exercicio.grupo,
+
+            // Imagem será migrada para Firebase Storage depois.
+            imagem: "",
+
+            atualizadoEm: serverTimestamp()
+        }
+    );
+
+}
+
+
+async function excluirExercicioFirebase(id) {
+
+    if (!usuarioAtual) {
+        throw new Error("Usuário não autenticado.");
+    }
+
+    await deleteDoc(
+        doc(
+            db,
+            "usuarios",
+            usuarioAtual.uid,
+            "exercicios",
+            String(id)
+        )
+    );
+
+}
+
+
+/* =========================================================
+   MIGRAÇÃO DOS TREINOS ANTIGOS
+========================================================= */
 
 function migrarDadosAntigos() {
-
-    exercicios.forEach(exercicio => {
-
-        if (!exercicio.grupo) {
-            exercicio.grupo = "Outro";
-        }
-
-        if (!exercicio.imagem) {
-            exercicio.imagem = "";
-        }
-
-    });
-
 
     treinos.forEach(treino => {
 
         if (!Array.isArray(treino.exercicios)) {
             treino.exercicios = [];
         }
-
 
         treino.exercicios =
             treino.exercicios.map(item => {
@@ -55,33 +149,17 @@ function migrarDadosAntigos() {
                     typeof item === "string"
                 ) {
 
-                    const idAntigo = Number(item);
-
-                    const exercicio =
-                        exercicios.find(
-                            ex => ex.id === idAntigo
-                        );
-
-
                     return {
-
                         id:
                             Date.now() +
                             Math.floor(
                                 Math.random() * 100000
                             ),
 
-                        exercicioId: idAntigo,
-
-                        carga:
-                            exercicio?.carga ?? 20,
-
-                        repeticoes:
-                            exercicio?.repeticoes ?? 12,
-
-                        series:
-                            exercicio?.series ?? 3
-
+                        exercicioId: Number(item),
+                        carga: 20,
+                        repeticoes: 12,
+                        series: 3
                     };
 
                 }
@@ -92,30 +170,42 @@ function migrarDadosAntigos() {
 
     });
 
-
-    salvarDados();
+    salvarTreinosLocalmente();
 
 }
 
 
-/* =========================
+/* =========================================================
+   TREINOS - LOCALSTORAGE TEMPORÁRIO
+========================================================= */
+
+function salvarTreinosLocalmente() {
+
+    localStorage.setItem(
+        "treinos",
+        JSON.stringify(treinos)
+    );
+
+    atualizarResumo();
+
+}
+
+
+/* =========================================================
    NAVEGAÇÃO
-========================= */
+========================================================= */
 
 function abrirTela(id) {
 
     document
         .querySelectorAll(".tela")
         .forEach(tela => {
-
             tela.classList.remove("ativa");
-
         });
 
 
     const tela =
         document.getElementById(id);
-
 
     if (tela) {
         tela.classList.add("ativa");
@@ -125,19 +215,15 @@ function abrirTela(id) {
     document
         .querySelectorAll(".menu-inferior button")
         .forEach(botao => {
-
             botao.classList.remove("menu-ativo");
-
         });
 
 
     const mapa = {
-
         "tela-inicio": 0,
         "tela-treinos": 1,
         "tela-exercicios": 2,
         "tela-historico": 3
-
     };
 
 
@@ -148,8 +234,10 @@ function abrirTela(id) {
                 ".menu-inferior button"
             );
 
-        botoes[mapa[id]]
-            .classList.add("menu-ativo");
+        if (botoes[mapa[id]]) {
+            botoes[mapa[id]]
+                .classList.add("menu-ativo");
+        }
 
     }
 
@@ -165,30 +253,9 @@ function abrirTela(id) {
 }
 
 
-/* =========================
-   SALVAR
-========================= */
-
-function salvarDados() {
-
-    localStorage.setItem(
-        "treinos",
-        JSON.stringify(treinos)
-    );
-
-    localStorage.setItem(
-        "exercicios",
-        JSON.stringify(exercicios)
-    );
-
-    atualizarResumo();
-
-}
-
-
-/* =========================
+/* =========================================================
    TREINO - MODAL
-========================= */
+========================================================= */
 
 function abrirModalTreino() {
 
@@ -208,83 +275,71 @@ function fecharModalTreino() {
 }
 
 
-/* =========================
+/* =========================================================
    CRIAR TREINO
-========================= */
+========================================================= */
 
 document
     .getElementById("form-treino")
-    .addEventListener("submit", function(event) {
+    .addEventListener(
+        "submit",
+        function(event) {
 
-        event.preventDefault();
+            event.preventDefault();
+
+            const nome =
+                document
+                    .getElementById("nome-treino")
+                    .value
+                    .trim();
+
+            const descricao =
+                document
+                    .getElementById("descricao-treino")
+                    .value
+                    .trim();
+
+            if (!nome) return;
 
 
-        const nome =
-            document
-                .getElementById("nome-treino")
-                .value
-                .trim();
+            treinos.push({
+                id: Date.now(),
+                nome,
+                descricao,
+                exercicios: []
+            });
 
 
-        const descricao =
-            document
-                .getElementById("descricao-treino")
-                .value
-                .trim();
+            salvarTreinosLocalmente();
+            atualizarTreinos();
 
+            fecharModalTreino();
 
-        if (!nome) {
-            return;
+            this.reset();
+
         }
+    );
 
 
-        treinos.push({
-
-            id: Date.now(),
-
-            nome,
-
-            descricao,
-
-            exercicios: []
-
-        });
-
-
-        salvarDados();
-
-        atualizarTreinos();
-
-        fecharModalTreino();
-
-        this.reset();
-
-    });
-
-
-/* =========================
+/* =========================================================
    NOVO EXERCÍCIO
-========================= */
+========================================================= */
 
 function abrirModalExercicio() {
 
     imagemSelecionada = "";
 
-
     document
         .getElementById("form-exercicio")
         .reset();
-
 
     document
         .getElementById("preview-container")
         .classList.remove("ativo");
 
-
     document
         .getElementById("preview-imagem")
         .removeAttribute("src");
-
 
     document
         .getElementById("modal-exercicio")
@@ -302,120 +357,155 @@ function fecharModalExercicio() {
 }
 
 
-/* =========================
-   IMAGEM NOVO EXERCÍCIO
-========================= */
+/* =========================================================
+   IMAGEM - NOVO EXERCÍCIO
+========================================================= */
 
 document
     .getElementById("imagem-exercicio")
-    .addEventListener("change", function(event) {
+    .addEventListener(
+        "change",
+        function(event) {
 
-        const arquivo =
-            event.target.files[0];
+            const arquivo =
+                event.target.files[0];
+
+            if (!arquivo) return;
 
 
-        if (!arquivo) {
-            return;
+            if (!arquivo.type.startsWith("image/")) {
+
+                alert("Selecione uma imagem válida.");
+
+                this.value = "";
+
+                return;
+
+            }
+
+
+            const reader = new FileReader();
+
+
+            reader.onload = function(evento) {
+
+                imagemSelecionada =
+                    evento.target.result;
+
+                document
+                    .getElementById("preview-imagem")
+                    .src =
+                    imagemSelecionada;
+
+                document
+                    .getElementById("preview-container")
+                    .classList.add("ativo");
+
+            };
+
+
+            reader.readAsDataURL(arquivo);
+
         }
+    );
 
 
-        if (!arquivo.type.startsWith("image/")) {
-
-            alert("Selecione uma imagem válida.");
-
-            this.value = "";
-
-            return;
-
-        }
-
-
-        const reader =
-            new FileReader();
-
-
-        reader.onload = function(evento) {
-
-            imagemSelecionada =
-                evento.target.result;
-
-
-            document
-                .getElementById("preview-imagem")
-                .src =
-                imagemSelecionada;
-
-
-            document
-                .getElementById("preview-container")
-                .classList.add("ativo");
-
-        };
-
-
-        reader.readAsDataURL(arquivo);
-
-    });
-
-
-/* =========================
+/* =========================================================
    CADASTRAR EXERCÍCIO
-========================= */
+========================================================= */
 
 document
     .getElementById("form-exercicio")
-    .addEventListener("submit", function(event) {
+    .addEventListener(
+        "submit",
+        async function(event) {
 
-        event.preventDefault();
-
-
-        const nome =
-            document
-                .getElementById("nome-exercicio")
-                .value
-                .trim();
+            event.preventDefault();
 
 
-        const grupo =
-            document
-                .getElementById("grupo-exercicio")
-                .value;
+            if (!usuarioAtual) {
+
+                alert(
+                    "Aguarde a conexão com sua conta."
+                );
+
+                return;
+
+            }
 
 
-        if (!nome || !grupo) {
-            return;
+            const nome =
+                document
+                    .getElementById("nome-exercicio")
+                    .value
+                    .trim();
+
+            const grupo =
+                document
+                    .getElementById("grupo-exercicio")
+                    .value;
+
+
+            if (!nome || !grupo) return;
+
+
+            const novoExercicio = {
+
+                id: Date.now(),
+
+                nome,
+
+                grupo,
+
+                /*
+                A imagem aparece nesta sessão,
+                mas ainda não vai para o Firebase.
+                */
+                imagem: imagemSelecionada
+
+            };
+
+
+            try {
+
+                await salvarExercicioFirebase(
+                    novoExercicio
+                );
+
+                exercicios.push(
+                    novoExercicio
+                );
+
+                atualizarExercicios();
+                atualizarResumo();
+
+                fecharModalExercicio();
+
+                this.reset();
+
+                imagemSelecionada = "";
+
+                console.log(
+                    "Exercício salvo no Firestore."
+                );
+
+            } catch (erro) {
+
+                console.error(erro);
+
+                alert(
+                    "Não foi possível salvar o exercício."
+                );
+
+            }
+
         }
+    );
 
 
-        exercicios.push({
-
-            id: Date.now(),
-
-            nome,
-
-            grupo,
-
-            imagem: imagemSelecionada
-
-        });
-
-
-        salvarDados();
-
-        atualizarExercicios();
-
-        fecharModalExercicio();
-
-        this.reset();
-
-        imagemSelecionada = "";
-
-    });
-
-
-/* =========================
-   MOSTRAR BANCO
-========================= */
+/* =========================================================
+   MOSTRAR EXERCÍCIOS
+========================================================= */
 
 function atualizarExercicios() {
 
@@ -424,12 +514,10 @@ function atualizarExercicios() {
             "lista-exercicios"
         );
 
-
     const vazio =
         document.getElementById(
             "exercicios-vazio"
         );
-
 
     const filtro =
         document.getElementById(
@@ -468,7 +556,6 @@ function atualizarExercicios() {
         const card =
             document.createElement("div");
 
-
         card.className =
             "card-exercicio";
 
@@ -504,7 +591,6 @@ function atualizarExercicios() {
                     ${exercicio.nome}
                 </h3>
 
-
                 <div class="acoes-exercicio">
 
                     <button
@@ -514,7 +600,6 @@ function atualizarExercicios() {
                         ✏️ Editar
 
                     </button>
-
 
                     <button
                         class="botao-excluir-banco"
@@ -527,7 +612,6 @@ function atualizarExercicios() {
                 </div>
 
             </div>
-
         `;
 
 
@@ -538,9 +622,9 @@ function atualizarExercicios() {
 }
 
 
-/* =========================
-   EDITAR EXERCÍCIO DO BANCO
-========================= */
+/* =========================================================
+   EDITAR EXERCÍCIO
+========================================================= */
 
 function abrirEditarExercicio(id) {
 
@@ -572,12 +656,6 @@ function abrirEditarExercicio(id) {
         exercicioBancoSendoEditado.grupo;
 
 
-    /*
-    A imagem começa sendo a atual.
-    Se o usuário não escolher outra,
-    ela será mantida.
-    */
-
     imagemEdicao =
         exercicioBancoSendoEditado.imagem || "";
 
@@ -601,9 +679,9 @@ function abrirEditarExercicio(id) {
 }
 
 
-/* =========================
+/* =========================================================
    PREVIEW DA EDIÇÃO
-========================= */
+========================================================= */
 
 function atualizarPreviewEdicao() {
 
@@ -612,12 +690,10 @@ function atualizarPreviewEdicao() {
             "editar-preview-container"
         );
 
-
     const imagem =
         document.getElementById(
             "editar-preview-imagem"
         );
-
 
     const botaoRemover =
         document.getElementById(
@@ -634,9 +710,7 @@ function atualizarPreviewEdicao() {
         botaoRemover.style.display =
             "block";
 
-    }
-
-    else {
+    } else {
 
         imagem.removeAttribute("src");
 
@@ -650,9 +724,9 @@ function atualizarPreviewEdicao() {
 }
 
 
-/* =========================
+/* =========================================================
    TROCAR IMAGEM NA EDIÇÃO
-========================= */
+========================================================= */
 
 document
     .getElementById(
@@ -665,10 +739,7 @@ document
             const arquivo =
                 event.target.files[0];
 
-
-            if (!arquivo) {
-                return;
-            }
+            if (!arquivo) return;
 
 
             if (
@@ -711,14 +782,13 @@ document
     );
 
 
-/* =========================
+/* =========================================================
    REMOVER IMAGEM
-========================= */
+========================================================= */
 
 function removerImagemEdicao() {
 
     imagemEdicao = "";
-
 
     document
         .getElementById(
@@ -726,15 +796,14 @@ function removerImagemEdicao() {
         )
         .value = "";
 
-
     atualizarPreviewEdicao();
 
 }
 
 
-/* =========================
+/* =========================================================
    SALVAR EDIÇÃO DO EXERCÍCIO
-========================= */
+========================================================= */
 
 document
     .getElementById(
@@ -742,12 +811,15 @@ document
     )
     .addEventListener(
         "submit",
-        function(event) {
+        async function(event) {
 
             event.preventDefault();
 
 
-            if (!exercicioBancoSendoEditado) {
+            if (
+                !exercicioBancoSendoEditado ||
+                !usuarioAtual
+            ) {
                 return;
             }
 
@@ -760,7 +832,6 @@ document
                     .value
                     .trim();
 
-
             const grupo =
                 document
                     .getElementById(
@@ -769,9 +840,19 @@ document
                     .value;
 
 
-            if (!nome || !grupo) {
-                return;
-            }
+            if (!nome || !grupo) return;
+
+
+            const dadosAnteriores = {
+                nome:
+                    exercicioBancoSendoEditado.nome,
+
+                grupo:
+                    exercicioBancoSendoEditado.grupo,
+
+                imagem:
+                    exercicioBancoSendoEditado.imagem
+            };
 
 
             exercicioBancoSendoEditado.nome =
@@ -784,28 +865,39 @@ document
                 imagemEdicao;
 
 
-            salvarDados();
+            try {
 
-            atualizarExercicios();
+                await salvarExercicioFirebase(
+                    exercicioBancoSendoEditado
+                );
 
-            atualizarTreinos();
+                atualizarExercicios();
+                atualizarTreinos();
 
+                if (treinoSelecionado) {
+                    atualizarExerciciosDoTreino();
+                }
 
-            /*
-            Caso o usuário esteja editando
-            um exercício usado no treino,
-            o treino também recebe a
-            atualização visual.
-            */
+                fecharModalEditarExercicio();
 
-            if (treinoSelecionado) {
+            } catch (erro) {
 
-                atualizarExerciciosDoTreino();
+                exercicioBancoSendoEditado.nome =
+                    dadosAnteriores.nome;
+
+                exercicioBancoSendoEditado.grupo =
+                    dadosAnteriores.grupo;
+
+                exercicioBancoSendoEditado.imagem =
+                    dadosAnteriores.imagem;
+
+                console.error(erro);
+
+                alert(
+                    "Não foi possível atualizar o exercício."
+                );
 
             }
-
-
-            fecharModalEditarExercicio();
 
         }
     );
@@ -819,20 +911,18 @@ function fecharModalEditarExercicio() {
         )
         .classList.remove("aberto");
 
-
-    exercicioBancoSendoEditado =
-        null;
+    exercicioBancoSendoEditado = null;
 
     imagemEdicao = "";
 
 }
 
 
-/* =========================
+/* =========================================================
    EXCLUIR EXERCÍCIO
-========================= */
+========================================================= */
 
-function excluirExercicio(id) {
+async function excluirExercicio(id) {
 
     const exercicio =
         exercicios.find(
@@ -840,15 +930,8 @@ function excluirExercicio(id) {
         );
 
 
-    if (!exercicio) {
-        return;
-    }
+    if (!exercicio) return;
 
-
-    /*
-    Descobrimos quantos treinos utilizam
-    o exercício.
-    */
 
     const treinosUsando =
         treinos.filter(treino => {
@@ -868,67 +951,63 @@ function excluirExercicio(id) {
     if (treinosUsando.length > 0) {
 
         mensagem +=
-
             `\n\nEste exercício está em ${treinosUsando.length} treino(s).` +
-
             `\nEle também será removido desses treinos.`;
 
     }
 
 
-    const confirmar =
-        confirm(mensagem);
+    if (!confirm(mensagem)) return;
 
 
-    if (!confirmar) {
-        return;
-    }
+    try {
+
+        await excluirExercicioFirebase(id);
 
 
-    /*
-    Remove do banco.
-    */
-
-    exercicios =
-        exercicios.filter(
-            item => item.id !== id
-        );
-
-
-    /*
-    Remove de todos os treinos.
-    */
-
-    treinos.forEach(treino => {
-
-        treino.exercicios =
-            treino.exercicios.filter(
-                item =>
-                    item.exercicioId !== id
+        exercicios =
+            exercicios.filter(
+                item => item.id !== id
             );
 
-    });
+
+        treinos.forEach(treino => {
+
+            treino.exercicios =
+                treino.exercicios.filter(
+                    item =>
+                        item.exercicioId !== id
+                );
+
+        });
 
 
-    salvarDados();
+        salvarTreinosLocalmente();
 
-    atualizarExercicios();
+        atualizarExercicios();
+        atualizarTreinos();
 
-    atualizarTreinos();
 
+        if (treinoSelecionado) {
+            atualizarExerciciosDoTreino();
+        }
 
-    if (treinoSelecionado) {
+    } catch (erro) {
 
-        atualizarExerciciosDoTreino();
+        console.error(erro);
+
+        alert(
+            "Não foi possível excluir o exercício."
+        );
 
     }
 
 }
 
 
-/* =========================
+/* =========================================================
    MOSTRAR TREINOS
-========================= */
+========================================================= */
 
 function atualizarTreinos() {
 
@@ -936,7 +1015,6 @@ function atualizarTreinos() {
         document.getElementById(
             "lista-treinos"
         );
-
 
     const vazio =
         document.getElementById(
@@ -964,10 +1042,8 @@ function atualizarTreinos() {
         const quantidade =
             treino.exercicios.length;
 
-
         const card =
             document.createElement("div");
-
 
         card.className =
             "item-lista";
@@ -991,7 +1067,6 @@ function atualizarTreinos() {
 
             </p>
 
-
             <button
                 class="botao-abrir-treino"
                 onclick="abrirTreino(${treino.id})">
@@ -999,7 +1074,6 @@ function atualizarTreinos() {
                 Abrir treino
 
             </button>
-
         `;
 
 
@@ -1010,9 +1084,9 @@ function atualizarTreinos() {
 }
 
 
-/* =========================
+/* =========================================================
    ABRIR TREINO
-========================= */
+========================================================= */
 
 function abrirTreino(id) {
 
@@ -1023,9 +1097,7 @@ function abrirTreino(id) {
         );
 
 
-    if (!treinoSelecionado) {
-        return;
-    }
+    if (!treinoSelecionado) return;
 
 
     document
@@ -1046,7 +1118,6 @@ function abrirTreino(id) {
 
     atualizarExerciciosDoTreino();
 
-
     abrirTela(
         "tela-detalhes-treino"
     );
@@ -1054,15 +1125,13 @@ function abrirTreino(id) {
 }
 
 
-/* =========================
-   MODAL ADICIONAR
-========================= */
+/* =========================================================
+   MODAL ADICIONAR EXERCÍCIO AO TREINO
+========================================================= */
 
 function abrirModalAdicionarExercicio() {
 
-    if (!treinoSelecionado) {
-        return;
-    }
+    if (!treinoSelecionado) return;
 
 
     document
@@ -1095,17 +1164,19 @@ function fecharModalAdicionarExercicio() {
 }
 
 
-/* =========================
-   LISTAR OPÇÕES
-========================= */
+/* =========================================================
+   LISTAR OPÇÕES DE EXERCÍCIOS
+========================================================= */
 
 function listarOpcoesExercicios() {
+
+    if (!treinoSelecionado) return;
+
 
     const lista =
         document.getElementById(
             "opcoes-exercicios"
         );
-
 
     const filtro =
         document.getElementById(
@@ -1129,12 +1200,10 @@ function listarOpcoesExercicios() {
                 filtro === "Todos" ||
                 exercicio.grupo === filtro;
 
-
             const aindaNaoAdicionado =
                 !idsNoTreino.includes(
                     exercicio.id
                 );
-
 
             return (
                 grupoCorreto &&
@@ -1147,12 +1216,10 @@ function listarOpcoesExercicios() {
     if (disponiveis.length === 0) {
 
         lista.innerHTML = `
-
             <p class="subtitulo">
                 Nenhum exercício disponível
                 neste grupo.
             </p>
-
         `;
 
         return;
@@ -1164,7 +1231,6 @@ function listarOpcoesExercicios() {
 
         const botao =
             document.createElement("button");
-
 
         botao.type = "button";
 
@@ -1203,7 +1269,6 @@ function listarOpcoesExercicios() {
                 </span>
 
             </div>
-
         `;
 
 
@@ -1226,9 +1291,9 @@ function listarOpcoesExercicios() {
 }
 
 
-/* =========================
-   SELECIONAR PARA TREINO
-========================= */
+/* =========================================================
+   SELECIONAR EXERCÍCIO PARA TREINO
+========================================================= */
 
 function selecionarExercicioParaTreino(
     exercicioId
@@ -1258,11 +1323,9 @@ function selecionarExercicioParaTreino(
         .getElementById("config-carga")
         .value = 20;
 
-
     document
         .getElementById("config-repeticoes")
         .value = 12;
-
 
     document
         .getElementById("config-series")
@@ -1292,9 +1355,9 @@ function fecharModalConfigurarExercicio() {
 }
 
 
-/* =========================
-   ADICIONAR AO TREINO
-========================= */
+/* =========================================================
+   ADICIONAR EXERCÍCIO AO TREINO
+========================================================= */
 
 document
     .getElementById(
@@ -1324,7 +1387,6 @@ document
                         .value
                 );
 
-
             const repeticoes =
                 Number(
                     document
@@ -1333,7 +1395,6 @@ document
                         )
                         .value
                 );
-
 
             const series =
                 Number(
@@ -1367,14 +1428,12 @@ document
                 });
 
 
-            salvarDados();
+            salvarTreinosLocalmente();
 
             atualizarTreinos();
-
             atualizarExerciciosDoTreino();
 
             fecharModalConfigurarExercicio();
-
 
             exercicioSelecionadoParaAdicionar =
                 null;
@@ -1383,9 +1442,9 @@ document
     );
 
 
-/* =========================
+/* =========================================================
    EXERCÍCIOS DO TREINO
-========================= */
+========================================================= */
 
 function atualizarExerciciosDoTreino() {
 
@@ -1393,7 +1452,6 @@ function atualizarExerciciosDoTreino() {
         document.getElementById(
             "lista-exercicios-treino"
         );
-
 
     const vazio =
         document.getElementById(
@@ -1419,6 +1477,9 @@ function atualizarExerciciosDoTreino() {
     vazio.style.display = "none";
 
 
+    let quantidadeRenderizada = 0;
+
+
     treinoSelecionado
         .exercicios
         .forEach(item => {
@@ -1430,14 +1491,14 @@ function atualizarExerciciosDoTreino() {
                 );
 
 
-            if (!exercicio) {
-                return;
-            }
+            if (!exercicio) return;
+
+
+            quantidadeRenderizada++;
 
 
             const card =
                 document.createElement("div");
-
 
             card.className =
                 "item-treino-exercicio";
@@ -1464,7 +1525,6 @@ function atualizarExerciciosDoTreino() {
 
                 ${imagem}
 
-
                 <div class="conteudo-treino-exercicio">
 
                     <div class="linha-titulo-exercicio">
@@ -1480,7 +1540,6 @@ function atualizarExerciciosDoTreino() {
                             </span>
 
                         </div>
-
 
                         <button
                             class="botao-editar"
@@ -1499,32 +1558,26 @@ function atualizarExerciciosDoTreino() {
                             <strong>
                                 ${item.carga} kg
                             </strong>
-
                             <span>Carga</span>
                         </div>
-
 
                         <div>
                             <strong>
                                 ${item.series}
                             </strong>
-
                             <span>Séries</span>
                         </div>
-
 
                         <div>
                             <strong>
                                 ${item.repeticoes}
                             </strong>
-
                             <span>Repetições</span>
                         </div>
 
                     </div>
 
                 </div>
-
             `;
 
 
@@ -1532,16 +1585,24 @@ function atualizarExerciciosDoTreino() {
 
         });
 
+
+    if (quantidadeRenderizada === 0) {
+        vazio.style.display = "block";
+    }
+
 }
 
 
-/* =========================
+/* =========================================================
    EDITAR CONFIGURAÇÃO NO TREINO
-========================= */
+========================================================= */
 
 function abrirEditarTreinoExercicio(
     itemId
 ) {
+
+    if (!treinoSelecionado) return;
+
 
     itemTreinoSendoEditado =
         treinoSelecionado.exercicios.find(
@@ -1550,9 +1611,7 @@ function abrirEditarTreinoExercicio(
         );
 
 
-    if (!itemTreinoSendoEditado) {
-        return;
-    }
+    if (!itemTreinoSendoEditado) return;
 
 
     const exercicio =
@@ -1563,9 +1622,7 @@ function abrirEditarTreinoExercicio(
         );
 
 
-    if (!exercicio) {
-        return;
-    }
+    if (!exercicio) return;
 
 
     document
@@ -1620,9 +1677,9 @@ function fecharModalEditarTreinoExercicio() {
 }
 
 
-/* =========================
-   SALVAR CONFIGURAÇÃO
-========================= */
+/* =========================================================
+   SALVAR CONFIGURAÇÃO DO EXERCÍCIO NO TREINO
+========================================================= */
 
 document
     .getElementById(
@@ -1670,12 +1727,11 @@ document
                 );
 
 
-            salvarDados();
+            salvarTreinosLocalmente();
 
             atualizarExerciciosDoTreino();
 
             fecharModalEditarTreinoExercicio();
-
 
             itemTreinoSendoEditado = null;
 
@@ -1683,33 +1739,39 @@ document
     );
 
 
-/* =========================
+/* =========================================================
    RESUMO
-========================= */
+========================================================= */
 
 function atualizarResumo() {
 
-    document
-        .getElementById(
+    const totalTreinos =
+        document.getElementById(
             "total-treinos"
-        )
-        .textContent =
-        treinos.length;
+        );
 
-
-    document
-        .getElementById(
+    const totalExercicios =
+        document.getElementById(
             "total-exercicios"
-        )
-        .textContent =
-        exercicios.length;
+        );
+
+
+    if (totalTreinos) {
+        totalTreinos.textContent =
+            treinos.length;
+    }
+
+    if (totalExercicios) {
+        totalExercicios.textContent =
+            exercicios.length;
+    }
 
 }
 
 
-/* =========================
+/* =========================================================
    FECHAR MODAL CLICANDO FORA
-========================= */
+========================================================= */
 
 window.addEventListener(
     "click",
@@ -1735,14 +1797,106 @@ window.addEventListener(
 );
 
 
-/* =========================
+/* =========================================================
+   FUNÇÕES DISPONÍVEIS PARA O HTML
+========================================================= */
+
+window.abrirTela =
+    abrirTela;
+
+window.abrirModalTreino =
+    abrirModalTreino;
+
+window.fecharModalTreino =
+    fecharModalTreino;
+
+window.abrirModalExercicio =
+    abrirModalExercicio;
+
+window.fecharModalExercicio =
+    fecharModalExercicio;
+
+window.abrirEditarExercicio =
+    abrirEditarExercicio;
+
+window.fecharModalEditarExercicio =
+    fecharModalEditarExercicio;
+
+window.removerImagemEdicao =
+    removerImagemEdicao;
+
+window.excluirExercicio =
+    excluirExercicio;
+
+window.abrirTreino =
+    abrirTreino;
+
+window.abrirModalAdicionarExercicio =
+    abrirModalAdicionarExercicio;
+
+window.fecharModalAdicionarExercicio =
+    fecharModalAdicionarExercicio;
+
+window.selecionarExercicioParaTreino =
+    selecionarExercicioParaTreino;
+
+window.fecharModalConfigurarExercicio =
+    fecharModalConfigurarExercicio;
+
+window.abrirEditarTreinoExercicio =
+    abrirEditarTreinoExercicio;
+
+window.fecharModalEditarTreinoExercicio =
+    fecharModalEditarTreinoExercicio;
+
+window.listarOpcoesExercicios =
+    listarOpcoesExercicios;
+
+
+/* =========================================================
    INICIAR
-========================= */
+========================================================= */
 
 migrarDadosAntigos();
 
 atualizarTreinos();
-
-atualizarExercicios();
-
 atualizarResumo();
+
+
+/*
+O Firebase verifica se existe uma sessão
+já autenticada no aparelho.
+*/
+
+onAuthStateChanged(
+    auth,
+    async usuario => {
+
+        if (usuario) {
+
+            usuarioAtual = usuario;
+
+            console.log(
+                "Usuário conectado:",
+                usuario.email
+            );
+
+            await carregarExerciciosFirebase();
+
+        } else {
+
+            usuarioAtual = null;
+
+            exercicios = [];
+
+            atualizarExercicios();
+            atualizarResumo();
+
+            console.log(
+                "Nenhum usuário conectado."
+            );
+
+        }
+
+    }
+);
